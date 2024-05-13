@@ -1,0 +1,46 @@
+#!/bin/bash
+
+if [ -z "$1" ]; then
+  echo "Usage: $0 <pid>"
+  exit 1
+fi
+if [ ! -d "/proc/$1" ]; then
+  echo "PID $1 does not exist"
+  exit 1
+fi
+
+declare -i row=0
+target="0x9b338"
+
+while read -r line; do
+  mem_range="$(echo "$line" | awk '{print $1}')"
+  perms="$(echo "$line" | awk '{print $2}')"
+
+  if [[ "$perms" == *"r"* ]]; then
+    start_addr="$(echo "$mem_range" | cut -d'-' -f1)"
+    end_addr="$(echo "$mem_range" | cut -d'-' -f2)"
+
+    if [ "$start_addr" = "7f4df0000000" ]; then
+      echo "-----------"
+      echo "$line"
+      echo "Found the memory map! Row: $row | Start: $start_addr | End: $end_addr"
+
+      addressNumber="$((16#$start_addr + 16#0009b338))"
+      
+      # dd if="/proc/$1/mem" of="/dev/stdout" bs=1 skip="$addressNumber" count=2 2>/dev/null
+      # dd if="/proc/$1/mem" of="/home/gustavo/Documents/result" bs=1 skip="$addressNumber" count=2 2>/dev/null
+
+      dd if="/proc/$1/mem" bs=1 skip="$addressNumber" count=2 status=none | hexdump -e '16/1 "%02x " "\n"' -d
+
+      # rw-s 00000000 00:3a 2                          /dev/shm/duckstation_2 (deleted)
+
+      exit 1
+    fi
+
+    echo "Reading memory range $mem_range..."
+    dd if="/proc/$1/mem" of="/dev/stdout" bs=1 skip="$start_addr" count="$((16#$end_addr - 16#$start_addr))" 2>/dev/null
+  fi
+
+  row+=1
+
+done < "/proc/$1/maps"

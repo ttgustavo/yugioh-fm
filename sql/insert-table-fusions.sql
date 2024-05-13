@@ -1,0 +1,2 @@
+INSERT INTO fusions
+VALUES (?, ?, ?);
